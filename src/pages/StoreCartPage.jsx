@@ -40,7 +40,7 @@ const StoreCartPage = () => {
   const [includeDelivery, setIncludeDelivery] = useState(true);
   const [orderData, setOrderData] = useState(null);
   
-  const publicKey = 'pk_test_3bdc97b024233bb522a068bfefbbe9292322b0fa';
+  const publicKey = 'pk_live_760359367d973660d1cd77f5f1954e00c0cc2e38';
 
   // Fetch user profile to check if complete
   useEffect(() => {
