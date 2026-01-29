@@ -20,7 +20,8 @@ import {
   CheckCircle,
   User,
   Phone,
-  MapPin
+  MapPin,
+  Motorbike
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { PaystackButton } from 'react-paystack';
@@ -386,6 +387,7 @@ const StoreCartPage = () => {
                 </div>
                 
                 {/* Delivery Option */}
+              
                 <div className="border border-gray-200 rounded-lg p-4 bg-white mt-4">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-2">
@@ -458,6 +460,7 @@ const StoreCartPage = () => {
                   </span>
                 </div>
                 
+                
                 {/* Total */}
                 <div className="border-t border-gray-200 pt-4">
                   <div className="flex justify-between text-lg font-medium text-gray-900">
@@ -473,6 +476,11 @@ const StoreCartPage = () => {
                       'Excludes delivery fee (Pay upon delivery)'
                     }
                   </p>
+                </div>
+                  <div className="mt-4 flex items-center space-x-2">
+                  <h1 className="text-lg font-semibold text-gray-900">Delivery:</h1>
+                  <Motorbike className="w-6 h-6 text-gray-700" />
+                  <p className="text-gray-600 text-sm">Estimated delivery time: 1-2 days</p>
                 </div>
               </div>
 
