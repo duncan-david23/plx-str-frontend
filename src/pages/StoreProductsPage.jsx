@@ -37,6 +37,7 @@ const StoreProductsPage = () => {
   const [priceRange, setPriceRange] = useState([0, 1000]);
   const [maxPrice, setMaxPrice] = useState(1000);
   const [showPriceFilter, setShowPriceFilter] = useState(false);
+  const [showSearchModal, setShowSearchModal] = useState(false);
   
   // Define all categories with their images - always show these
   const allCategories = [
@@ -65,26 +66,6 @@ const StoreProductsPage = () => {
       name: 'Sweatshirts', 
       image: sweatshirtImg
     },
-    // { 
-    //   id: 'jacket', 
-    //   name: 'Jackets', 
-    //   image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400&h=400&fit=crop&q=80' 
-    // },
-    // { 
-    //   id: 'pants', 
-    //   name: 'Pants', 
-    //   image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=400&h=400&fit=crop&q=80' 
-    // },
-    // { 
-    //   id: 'shoes', 
-    //   name: 'Shoes', 
-    //   image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=400&h=400&fit=crop&q=80' 
-    // },
-    // { 
-    //   id: 'accessories', 
-    //   name: 'Accessories', 
-    //   image: 'https://images.unsplash.com/photo-1591343395082-e120aa5bd5fc?w=400&h=400&fit=crop&q=80' 
-    // }
   ];
 
   const navigate = useNavigate();
@@ -181,7 +162,7 @@ const StoreProductsPage = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedPriceRange(priceRange);
-    }, 150); // Reduced to 150ms for smoother feel
+    }, 150);
 
     return () => clearTimeout(timer);
   }, [priceRange]);
@@ -194,7 +175,6 @@ const StoreProductsPage = () => {
       filtered = filtered.filter(product => {
         if (!product.category) return false;
         
-        // Check if product category includes the selected category
         const productCategories = Array.isArray(product.category) 
           ? product.category.map(cat => cat.toLowerCase()) 
           : [product.category.toLowerCase()];
@@ -203,20 +183,16 @@ const StoreProductsPage = () => {
       });
     }
 
-    // Search filter - now includes category name
+    // Search filter
     if (searchQuery.trim() !== '') {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(product => {
-        // Check product name
         if (product.name && product.name.toLowerCase().includes(query)) return true;
         
-        // Check description
         if (product.description && product.description.toLowerCase().includes(query)) return true;
         
-        // Check SKU
         if (product.sku && product.sku.toLowerCase().includes(query)) return true;
         
-        // Check categories
         if (product.category) {
           const productCategories = Array.isArray(product.category) 
             ? product.category 
@@ -562,6 +538,97 @@ const StoreProductsPage = () => {
     );
   };
 
+  const SearchModal = () => {
+    return (
+      <AnimatePresence>
+        {showSearchModal && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed top-0 left-0 right-0 z-50 bg-white shadow-lg border-b border-gray-200 overflow-hidden"
+          >
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+              <div className="flex items-center space-x-3">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search products or categories..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    autoFocus
+                    className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg text-sm font-light focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+                <button
+                  onClick={() => setShowSearchModal(false)}
+                  className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-light"
+                >
+                  Close
+                </button>
+              </div>
+              
+              {/* Search Results Preview */}
+              {searchQuery && filteredProducts.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-4 pt-4 border-t border-gray-100"
+                >
+                  <p className="text-sm text-gray-500 mb-3">
+                    Found {filteredProducts.length} result{filteredProducts.length !== 1 ? 's' : ''}
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {filteredProducts.slice(0, 4).map((product) => (
+                      <div
+                        key={product.id}
+                        onClick={() => {
+                          setSelectedProduct(product);
+                          setShowSearchModal(false);
+                        }}
+                        className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer border border-gray-200"
+                      >
+                        <div className="w-12 h-12 bg-gray-100 rounded overflow-hidden flex-shrink-0">
+                          <img
+                            src={product.images?.[0] || 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=600&q=80'}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-light text-gray-900 truncate">{product.name}</p>
+                          <p className="text-xs text-gray-500 font-light">{formatCurrency(product.price)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {filteredProducts.length > 4 && (
+                    <button
+                      onClick={() => setShowSearchModal(false)}
+                      className="w-full mt-3 py-2 text-center text-sm text-gray-600 hover:text-gray-900 font-light"
+                    >
+                      View all {filteredProducts.length} results →
+                    </button>
+                  )}
+                </motion.div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -603,32 +670,14 @@ const StoreProductsPage = () => {
               <img src={plangex_logo_black} alt="Plangex" className="h-7 w-auto" />
             </button>
 
-            {/* <nav className="hidden md:flex items-center space-x-6">
-              {allCategories.map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => setSelectedCategory(category.id)}
-                  className={`text-xs font-light transition-colors ${
-                    selectedCategory === category.id
-                      ? 'text-gray-900'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  {category.name}
-                </button>
-              ))}
-            </nav> */}
-
             <div className="flex items-center space-x-3">
-              <div className="relative hidden md:block">
-                <input
-                  type="text"
-                  placeholder="Search......"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-3 pr-3 py-1.5 border border-gray-300 rounded text-sm font-light w-48 focus:outline-none focus:border-gray-400"
-                />
-              </div>
+              {/* Search Icon Button */}
+              <button
+                onClick={() => setShowSearchModal(true)}
+                className="p-1.5 hover:bg-gray-100 rounded relative"
+              >
+                <Search className="w-4 h-4" />
+              </button>
 
               <button 
                 onClick={() => navigate('/store/cart')}
@@ -644,28 +693,17 @@ const StoreProductsPage = () => {
 
               <button 
                 className="p-1.5 hover:bg-gray-100 rounded"
-                // onClick={() => window.open('https://plangex.com/user-account', '_blank')}
-                onClick= {()=> navigate('/user-account')}
+                onClick={() => navigate('/user-account')}
               >
                 <User className="w-4 h-4" />
               </button>
             </div>
           </div>
-
-          {/* Mobile search bar */}
-          <div className="md:hidden mt-3">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search products or categories..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-3 pr-3 py-2 border border-gray-300 rounded text-sm font-light focus:outline-none focus:border-gray-400"
-              />
-            </div>
-          </div>
         </div>
       </header>
+
+      {/* Search Modal */}
+      <SearchModal />
 
       {/* Hero Banner */}
       <div className="relative w-full h-[200px] sm:h-[225px] md:h-[250px] overflow-hidden">
@@ -719,7 +757,7 @@ const StoreProductsPage = () => {
                     : 'bg-black/20 group-hover:bg-black/30'
                 }`} />
               </div>
-              <span className="text-xs font-light text-center">{category.name}</span>
+              <span className="text-xs font-bold text-center">{category.name}</span>
             </button>
           ))}
         </div>
@@ -751,20 +789,10 @@ const StoreProductsPage = () => {
                       : 'bg-black/20'
                   }`} />
                 </div>
-                <span className="text-xs font-light text-center">{category.name}</span>
+                <span className="text-xs font-bold text-center">{category.name}</span>
               </button>
             ))}
           </div>
-          {/* Hide scrollbar but keep functionality */}
-          <style jsx>{`
-            .scrollbar-hide {
-              -ms-overflow-style: none;
-              scrollbar-width: none;
-            }
-            .scrollbar-hide::-webkit-scrollbar {
-              display: none;
-            }
-          `}</style>
         </div>
       </div>
 
