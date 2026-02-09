@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
 import plangex_logo from '../assets/PlangeX_logo_white.png'; 
 import plangex_logo_black from '../assets/PlangeX_logo.png'; 
+
+
 import axios from 'axios';
 import { 
   User, 
@@ -120,11 +122,11 @@ const AccountPage = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center">
                <button 
-                onClick={() => navigate('/products')}
+                onClick={() => navigate('/store')}
                 className="sm:flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
               >
                 <ShoppingBag className="w-5 h-5" />
-                <p className='hidden md:block'>Shop</p>
+                <p className='hidden md:block'>Store</p>
               </button>
             </div>
             

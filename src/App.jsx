@@ -43,11 +43,11 @@ const location = useLocation()
         <div className="App">
           <Routes>
             
-            {/* <Route path="/user-account" element={
+            <Route path="/user-account" element={
               <AuthWrapper>
               <AccountPage />
               </AuthWrapper>
-              } /> */}
+              } />
             <Route path="/thank-you" element={
               <AuthWrapper>
               <ThankYou />

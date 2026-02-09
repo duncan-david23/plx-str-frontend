@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Calendar, Clock, CheckCircle, XCircle, Truck, Search, Filter, Download, Eye, Loader, AlertCircle, Package } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Calendar, Clock, CheckCircle, XCircle, Truck, Search, Package, User, Mail, Phone, MapPin, ChevronDown, ChevronUp, Loader, AlertCircle } from 'lucide-react';
 import { formatCurrency } from '../utils/currency';
 import axios from 'axios';
 import { supabase } from '../lib/supabaseClient';
@@ -10,6 +10,9 @@ const OrdersSection = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [expandedOrderId, setExpandedOrderId] = useState(null);
   const [pagination, setPagination] = useState({
     current_page: 1,
     total_pages: 1,
@@ -22,7 +25,6 @@ const OrdersSection = () => {
       setLoading(true);
       setError(null);
 
-      // Get auth token from Supabase
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
@@ -33,9 +35,8 @@ const OrdersSection = () => {
 
       const token = session.access_token;
 
-      // Fetch orders from your backend API
       const response = await axios.get(
-        `https://plx-bckend.onrender.com/api/users/orders?page=${page}&limit=10`,
+        `https://plx-bckend.onrender.com/api/users/custom-orders?page=${page}&limit=10`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -43,21 +44,23 @@ const OrdersSection = () => {
         }
       );
 
-      if (response.data.orders) {
-        // Transform backend data to match frontend format
-        const transformedOrders = response.data.orders.map(order => ({
-          id: order.order_id || `ORD-${order.order_id || order.order_id}`,
-          order_id: order.order_id, // Keep original ID
+      console.log('Backend response:', response.data);
+
+      if (response.data && Array.isArray(response.data)) {
+        const ordersData = response.data;
+        
+        const transformedOrders = ordersData.map(order => ({
+          id: order.id || `ORD-${order.order_id}`,
+          order_id: order.order_id || order.id,
           date: order.created_at,
           items: Array.isArray(order.items) ? order.items.map(item => ({
-            name: item.product_name || 'Custom Product',
+            name: item.name || 'Custom Product',
             quantity: item.quantity || 1,
-            price: item.product_price || item.total_price || 0,
-            size: item.size,
-            custom_instructions: item.custom_instructions,
-            preview_image: item.preview_image || null,
-            uploaded_designs: item.uploaded_designs || [],
-            uploaded_designs_count: item.uploaded_designs_count || 0
+            price: item.price || item.itemTotal || 0,
+            size: item.size || 'N/A',
+            image: item.image || null,
+            productId: item.productId,
+            itemTotal: item.itemTotal || (item.price * item.quantity)
           })) : [],
           total: order.order_total || 0,
           status: order.status || 'pending',
@@ -65,57 +68,79 @@ const OrdersSection = () => {
           customer_email: order.customer_email || '',
           customer_phone: order.customer_phone || '',
           customer_address: order.customer_address || '',
-          item_count: order.item_count || 0,
+          item_count: parseInt(order.item_count) || 0,
           created_at: order.created_at,
-          updated_at: order.updated_at
+          updated_at: order.updated_at,
+          user_id: order.user_id
         }));
 
+        console.log('Transformed orders:', transformedOrders);
         setOrders(transformedOrders);
         
+        setPagination({
+          current_page: page,
+          total_pages: Math.ceil(transformedOrders.length / 10),
+          total_count: transformedOrders.length,
+          per_page: 10
+        });
+      } else if (response.data.orders && Array.isArray(response.data.orders)) {
+        const ordersData = response.data.orders;
+        
+        const transformedOrders = ordersData.map(order => ({
+          id: order.id || `ORD-${order.order_id}`,
+          order_id: order.order_id || order.id,
+          date: order.created_at,
+          items: Array.isArray(order.items) ? order.items.map(item => ({
+            name: item.name || 'Custom Product',
+            quantity: item.quantity || 1,
+            price: item.price || item.itemTotal || 0,
+            size: item.size || 'N/A',
+            image: item.image || null,
+            productId: item.productId,
+            itemTotal: item.itemTotal || (item.price * item.quantity)
+          })) : [],
+          total: order.order_total || 0,
+          status: order.status || 'pending',
+          customer_name: order.customer_name || '',
+          customer_email: order.customer_email || '',
+          customer_phone: order.customer_phone || '',
+          customer_address: order.customer_address || '',
+          item_count: parseInt(order.item_count) || 0,
+          created_at: order.created_at,
+          updated_at: order.updated_at,
+          user_id: order.user_id
+        }));
 
-
-        // Update pagination info if available from backend
+        console.log('Transformed orders (alternate format):', transformedOrders);
+        setOrders(transformedOrders);
+        
         if (response.data.pagination) {
           setPagination(response.data.pagination);
+        } else {
+          setPagination({
+            current_page: page,
+            total_pages: Math.ceil(transformedOrders.length / 10),
+            total_count: transformedOrders.length,
+            per_page: 10
+          });
         }
+      } else {
+        setOrders([]);
+        setPagination({
+          current_page: 1,
+          total_pages: 1,
+          total_count: 0,
+          per_page: 10
+        });
       }
     } catch (err) {
       console.error('Error fetching orders:', err);
       setError(err.response?.data?.error || err.message || 'Failed to load orders');
-      
-      // For development, use mock data if API fails
-      if (process.env.NODE_ENV === 'development') {
-        setOrders(getMockOrders());
-      }
+      setOrders([]);
     } finally {
       setLoading(false);
     }
   };
-
-  // Mock data for development/fallback
-  const getMockOrders = () => [
-    {
-      id: 'ORD-001',
-      order_id: '001',
-      date: '2024-01-15',
-      items: [
-        { 
-          name: 'Custom T-Shirt', 
-          quantity: 2, 
-          price: 45.00, 
-          size: 'M',
-          custom_instructions: 'Print on front',
-          previewImage: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=150&h=150&fit=crop' 
-        }
-      ],
-      total: 90.00,
-      status: 'delivered',
-      customer_name: 'John Doe',
-      customer_email: 'john@example.com',
-      item_count: 1,
-      created_at: '2024-01-15T10:30:00Z'
-    }
-  ];
 
   useEffect(() => {
     fetchOrders();
@@ -147,170 +172,359 @@ const OrdersSection = () => {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const handleViewOrderDetails = (orderId) => {
-    // Navigate to order details page or show modal
-    console.log('View order details:', orderId);
-    // Example: navigate(`/orders/${orderId}`);
-  };
-
-  const handleDownloadInvoice = async (orderId) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      
-      // In the future, implement invoice download
-      alert('Invoice download feature coming soon!');
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
     } catch (err) {
-      console.error('Error downloading invoice:', err);
+      return 'Invalid Date';
     }
   };
 
-  const handleTrackOrder = (order) => {
-    if (order.status === 'shipped' || order.status === 'delivered') {
-      // Implement tracking logic
-      alert(`Tracking for order ${order.id} - Coming soon!`);
-    }
+  const handleViewOrderDetails = (order) => {
+    setSelectedOrder(order);
+    setShowOrderModal(true);
   };
 
-  const OrderCard = ({ order }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-xl transition-all"
-    >
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-6 gap-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full"></div>
-            <h3 className="font-bold text-gray-900 text-lg">{order.order_id}</h3>
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-              {getStatusIcon(order.status)}
-              <span className="capitalize">{order.status || 'pending'}</span>
-            </span>
-          </div>
-          <p className="text-sm text-gray-500 flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            {formatDate(order.date || order.created_at)}
-          </p>
-          
-          {order.customer_name && (
-            <p className="text-sm text-gray-500 mt-1">
-              Ordered by: {order.customer_name}
-            </p>
-          )}
-        </div>
-        
-        <div className="text-2xl font-bold text-gray-900">
-          {formatCurrency(order.total)}
-        </div>
-      </div>
+  const handleCloseModal = () => {
+    setShowOrderModal(false);
+    setSelectedOrder(null);
+  };
 
-      <div className="space-y-4 mb-6">
-        {order.items && order.items.length > 0 ? (
-          order.items.map((item, index) => (
-            <div key={index} className="flex items-center gap-4 p-3 bg-gray-50/50 rounded-xl">
-              {item.preview_image ? (
-                <div className="flex-shrink-0 w-16 h-16 bg-white rounded-lg overflow-hidden border border-gray-200">
-                  <img 
-                    src={item.preview_image} 
-                    alt={item.name} 
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.src = 'https://via.placeholder.com/150?text=No+Preview';
-                    }}
-                    onClick={() => {window.open(item.preview_image, '_blank') }}
-                  />
-                </div>
-              ) : (
-                <div className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
-                  <Package className="w-8 h-8 text-gray-400" />
-                </div>
-              )}
-              <div className="flex-1">
-                <h4 className="font-medium text-gray-900">{item.name}</h4>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
-                  {item.size && (
-                    <p className="text-sm text-gray-500">Size: {item.size}</p>
-                  )}
-                  {item.uploaded_designs_count > 0 && (
-                    <p className="text-sm text-blue-500">
-                      {item.uploaded_designs_count} design{item.uploaded_designs_count !== 1 ? 's' : ''}
-                    </p>
-                  )}
-                </div>
-                {item.custom_instructions && (
-                  <p className="text-xs text-gray-400 mt-1">
-                    Note: {item.custom_instructions}
-                  </p>
-                )}
+  const toggleOrderExpand = (orderId) => {
+    setExpandedOrderId(expandedOrderId === orderId ? null : orderId);
+  };
+
+  const OrderCard = ({ order }) => {
+    const isExpanded = expandedOrderId === order.id;
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-2xl border border-gray-100 overflow-hidden"
+      >
+        {/* Collapsed Header */}
+        <div 
+          className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+          onClick={() => toggleOrderExpand(order.id)}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
+                {getStatusIcon(order.status)}
+                <span className="capitalize">{order.status || 'pending'}</span>
               </div>
-              <div className="text-right">
-                <p className="font-semibold text-gray-900">{formatCurrency(item.price)}</p>
-                <p className="text-sm text-gray-500">each</p>
+              <div>
+                <h3 className="font-bold text-gray-900">Order #{order.order_id}</h3>
+                <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
+                  <Calendar className="w-4 h-4" />
+                  {formatDate(order.date || order.created_at)}
+                </p>
               </div>
             </div>
-          ))
-        ) : (
-          <div className="text-center py-4 text-gray-400">
-            No items found for this order
+            
+            <div className="flex items-center gap-6">
+              <div className="text-right">
+                <div className="text-lg font-bold text-gray-900">
+                  {formatCurrency(order.total)}
+                </div>
+                <p className="text-sm text-gray-500">
+                  {order.item_count || order.items?.length || 0} item{(order.item_count !== 1 && order.items?.length !== 1) ? 's' : ''}
+                </p>
+              </div>
+              {isExpanded ? (
+                <ChevronUp className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              )}
+            </div>
           </div>
-        )}
-      </div>
+          
+          {/* Quick info row */}
+          <div className="flex flex-wrap gap-4 mt-4 text-sm text-gray-600">
+            {order.customer_name && (
+              <div className="flex items-center gap-1.5">
+                <User className="w-4 h-4" />
+                <span>{order.customer_name}</span>
+              </div>
+            )}
+            {order.customer_email && (
+              <div className="flex items-center gap-1.5">
+                <Mail className="w-4 h-4" />
+                <span>{order.customer_email}</span>
+              </div>
+            )}
+            {order.customer_phone && (
+              <div className="flex items-center gap-1.5">
+                <Phone className="w-4 h-4" />
+                <span>{order.customer_phone}</span>
+              </div>
+            )}
+          </div>
+        </div>
 
-      <div className="flex items-center justify-between pt-6 border-t border-gray-100">
-        {/* <div className="flex items-center gap-2">
-          {(order.status === 'shipped' || order.status === 'delivered') && (
-            <button 
-              onClick={() => handleTrackOrder(order)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium rounded-lg hover:opacity-90"
+        {/* Expanded Content */}
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="border-t border-gray-100"
             >
-              <Truck className="w-4 h-4" />
-              Track Order
-            </button>
-          )}
-          <div className="text-sm text-gray-500">
-            {order.item_count || order.items?.length || 0} item{(order.item_count !== 1) ? 's' : ''}
-          </div>
-        </div> */}
-        {/* <div className="flex items-center gap-2">
-          <button 
-            onClick={() => handleViewOrderDetails(order.order_id || order.id)}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-            title="View Details"
-          >
-            <Eye className="w-5 h-5" />
-          </button>
-          <button 
-            onClick={() => handleDownloadInvoice(order.order_id || order.id)}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-            title="Download Invoice"
-          >
-            <Download className="w-5 h-5" />
-          </button>
-        </div> */}
-      </div>
-    </motion.div>
-  );
+              <div className="p-6 pt-4">
+                {/* Order Items */}
+                <div className="mb-6">
+                  <h4 className="font-medium text-gray-900 mb-3">Order Items</h4>
+                  <div className="space-y-3">
+                    {order.items && order.items.length > 0 ? (
+                      order.items.map((item, index) => (
+                        <div key={index} className="flex items-center gap-3 p-3 bg-gray-50/50 rounded-lg">
+                          {item.image ? (
+                            <div className="flex-shrink-0 w-12 h-12 bg-white rounded-lg overflow-hidden border border-gray-200">
+                              <img 
+                                src={item.image} 
+                                alt={item.name} 
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.src = 'https://via.placeholder.com/150?text=No+Image';
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex-shrink-0 w-12 h-12 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
+                              <Package className="w-6 h-6 text-gray-400" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h5 className="font-medium text-gray-900 truncate">{item.name}</h5>
+                            <div className="flex flex-wrap gap-1.5 mt-1">
+                              <span className="text-xs text-gray-500">Qty: {item.quantity}</span>
+                              {item.size && item.size !== 'N/A' && (
+                                <span className="text-xs text-gray-500">• Size: {item.size}</span>
+                              )}
+                              <span className="text-xs text-blue-500">• {formatCurrency(item.price)} each</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-gray-900">
+                              {formatCurrency(item.itemTotal || (item.price * item.quantity))}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-3 text-gray-400 text-sm">
+                        No items found for this order
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-  const filteredOrders = orders.filter(order => 
-    order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (order.customer_name && order.customer_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    order.items?.some(item => 
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.custom_instructions && item.custom_instructions.toLowerCase().includes(searchTerm.toLowerCase()))
-    )
-  );
+                {/* Shipping Address */}
+                {order.customer_address && (
+                  <div className="mb-4">
+                    <h4 className="font-medium text-gray-900 mb-2">Shipping Address</h4>
+                    <div className="flex items-start gap-2 p-3 bg-gray-50/50 rounded-lg">
+                      <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-gray-600">{order.customer_address}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Button */}
+                <div className="pt-4 border-t border-gray-100">
+                  <button 
+                    onClick={() => handleViewOrderDetails(order)}
+                    className="w-full px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+                  >
+                    View Full Details
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    );
+  };
+
+  const OrderModal = ({ order, onClose }) => {
+    if (!order) return null;
+
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.95, opacity: 0 }}
+          className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="p-8">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Order #{order.order_id}</h2>
+                <p className="text-gray-500 flex items-center gap-2 mt-1">
+                  <Calendar className="w-4 h-4" />
+                  {formatDate(order.created_at)}
+                </p>
+              </div>
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <XCircle className="w-6 h-6 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Status and Summary */}
+            <div className="grid md:grid-cols-2 gap-6 mb-8">
+              <div className="bg-gray-50 p-6 rounded-xl">
+                <h3 className="font-medium text-gray-900 mb-4">Order Status</h3>
+                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg ${getStatusColor(order.status)}`}>
+                  {getStatusIcon(order.status)}
+                  <span className="font-medium capitalize">{order.status}</span>
+                </div>
+                <p className="text-sm text-gray-500 mt-3">
+                  Last updated: {formatDate(order.updated_at)}
+                </p>
+              </div>
+              
+              <div className="bg-gray-50 p-6 rounded-xl">
+                <h3 className="font-medium text-gray-900 mb-4">Order Summary</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Items Total:</span>
+                    <span className="font-medium">{formatCurrency(order.total)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Items Count:</span>
+                    <span className="font-medium">{order.item_count || order.items?.length || 0} items</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t border-gray-200">
+                    <span className="text-gray-900 font-medium">Order Total:</span>
+                    <span className="text-xl font-bold text-gray-900">{formatCurrency(order.total)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Customer Information */}
+            <div className="mb-8">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Customer Information</h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <User className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm text-gray-500">Name</p>
+                      <p className="font-medium">{order.customer_name || 'Not provided'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Mail className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm text-gray-500">Email</p>
+                      <p className="font-medium">{order.customer_email || 'Not provided'}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Phone className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm text-gray-500">Phone</p>
+                      <p className="font-medium">{order.customer_phone || 'Not provided'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <MapPin className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm text-gray-500">Shipping Address</p>
+                      <p className="font-medium">{order.customer_address || 'Not provided'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Order Items */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Order Items</h3>
+              <div className="space-y-4">
+                {order.items && order.items.length > 0 ? (
+                  order.items.map((item, index) => (
+                    <div key={index} className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
+                      {item.image && (
+                        <div className="flex-shrink-0 w-20 h-20 bg-white rounded-lg overflow-hidden border border-gray-200">
+                          <img 
+                            src={item.image} 
+                            alt={item.name} 
+                            className="w-full h-full object-cover cursor-pointer"
+                            onClick={() => window.open(item.image, '_blank')}
+                          />
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900">{item.name}</h4>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          <span className="text-sm text-gray-600">Quantity: {item.quantity}</span>
+                          {item.size && item.size !== 'N/A' && (
+                            <span className="text-sm text-gray-600">Size: {item.size}</span>
+                          )}
+                          <span className="text-sm text-blue-600">Price: {formatCurrency(item.price)} each</span>
+                          <span className="text-sm text-gray-600">Product ID: {item.productId || 'N/A'}</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-gray-900">{formatCurrency(item.itemTotal || (item.price * item.quantity))}</p>
+                        <p className="text-sm text-gray-500">Item total</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-400">
+                    <Package className="w-12 h-12 mx-auto mb-3" />
+                    <p>No items in this order</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    );
+  };
+
+  const filteredOrders = orders.filter(order => {
+    if (!searchTerm.trim()) return true;
+    
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      order.order_id.toLowerCase().includes(searchLower) ||
+      order.customer_name.toLowerCase().includes(searchLower) ||
+      order.customer_email.toLowerCase().includes(searchLower) ||
+      order.customer_phone.toLowerCase().includes(searchLower) ||
+      order.items?.some(item => 
+        item.name.toLowerCase().includes(searchLower)
+      )
+    );
+  });
 
   if (loading) {
     return (
@@ -328,7 +542,7 @@ const OrdersSection = () => {
         <p className="text-red-500 mb-2">{error}</p>
         <button
           onClick={() => fetchOrders()}
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+          className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
         >
           Retry
         </button>
@@ -356,30 +570,28 @@ const OrdersSection = () => {
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search orders..."
+              placeholder="Search orders by ID, name, email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full sm:w-64 pl-12 pr-4 py-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-gray-900 focus:border-transparent"
             />
           </div>
-          {/* <button className="inline-flex items-center gap-2 px-5 py-3.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50">
-            <Filter className="w-5 h-5" />
-            Filter
-          </button> */}
         </div>
       </div>
 
       {filteredOrders.length === 0 ? (
         <div className="text-center py-12">
           <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h4 className="text-lg font-medium text-gray-500 mb-2">No orders found</h4>
+          <h4 className="text-lg font-medium text-gray-500 mb-2">
+            {searchTerm ? 'No orders found' : 'No orders yet'}
+          </h4>
           <p className="text-gray-400">
             {searchTerm ? 'Try a different search term' : 'Your order history will appear here'}
           </p>
         </div>
       ) : (
         <>
-          <div className="space-y-6">
+          <div className="space-y-4">
             {filteredOrders.map((order) => (
               <OrderCard key={order.id} order={order} />
             ))}
@@ -411,6 +623,16 @@ const OrdersSection = () => {
           )}
         </>
       )}
+
+      {/* Order Details Modal */}
+      <AnimatePresence>
+        {showOrderModal && selectedOrder && (
+          <OrderModal 
+            order={selectedOrder} 
+            onClose={handleCloseModal} 
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
