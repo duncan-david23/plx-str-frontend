@@ -692,7 +692,6 @@ const StoreProductsPage = () => {
 
       {/* Categories Section - Horizontal scroll on mobile */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        <h2 className="text-lg text-gray-900 font-light mb-4">Categories</h2>
         
         {/* Desktop Grid */}
         <div className="hidden md:grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-4">
